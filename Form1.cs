@@ -33,8 +33,9 @@ namespace Mission_Mkaer
             
             DrawingThread.Start();
             FormClosing += ClosingHandler;
-            MouseDown += UserInput;
+            MouseDown += UserMouseInput;
             MouseUp += UserRelease;
+            KeyDown += UserKeyboardInput;
             
         }
         public static Form MainForm;
@@ -52,7 +53,20 @@ namespace Mission_Mkaer
 
         public bool FormClosed = false;
 
-        public void UserInput(object sender, MouseEventArgs e)
+        public void UserKeyboardInput(object sender, KeyEventArgs e)
+        {
+            if(FocusedOn != null)
+            {
+                if (e.KeyCode == Keys.Back)
+                    FocusedOn.Text = FocusedOn.Text.Substring(0, FocusedOn.Text.Length - 1);
+                else if(char.IsLetterOrDigit((char)e.KeyCode))
+                {
+                    FocusedOn.Text += (char)e.KeyCode;
+                }
+            }
+        }
+
+        public void UserMouseInput(object sender, MouseEventArgs e)
         {
             foreach(Block block in Block.AllBlocks)
             {
@@ -62,7 +76,7 @@ namespace Mission_Mkaer
                     {
                         if (block.EditableArea.Container.Contains(e.Location)){
 
-
+                            FocusedOn = block.EditableArea;
                             break;
                         }
                     }
@@ -115,8 +129,6 @@ namespace Mission_Mkaer
                     if (found)
                         break;
                 }
-                //if (CurrentlyHeld.EditableArea != null)
-                //    Controls.Add(CurrentlyHeld.EditableArea);
                 CurrentlyHeld = null;
             }
         }
@@ -143,7 +155,7 @@ namespace Mission_Mkaer
             bool exited = false;
             int currentLine = 0;
             int currentID = 0;
-            using (Pen pen = new Pen(Color.Black, 4))
+            using (Pen pen = new Pen(Color.Black, 1))
             {                
                 do
                 {
@@ -183,6 +195,10 @@ namespace Mission_Mkaer
                             b.EditableArea.Container = new RectangleF(b.Area.X + size.Width + 5, b.Area.Y + 2, editablesize.Width, Block.BlockHeight - 4);
                             e.Graphics.FillRectangle(new SolidBrush(GetLighterColor(b.Color)), b.EditableArea.Container);
                             e.Graphics.DrawString(b.EditableArea.Text, defaultfont, Brushes.Black, b.Area.X + size.Width + 5, b.Area.Y);
+                            if(b.EditableArea == FocusedOn)
+                            {
+                                e.Graphics.DrawRectangle(pen,new Rectangle((int)b.EditableArea.Container.X-1, (int)b.EditableArea.Container.Y-1, (int)b.EditableArea.Container.Width+2, (int)b.EditableArea.Container.Height+2));
+                            }
                         }
                         if (b is OpenBlock)
                         {                                                                                                                                   
@@ -276,16 +292,6 @@ namespace Mission_Mkaer
         public static float BlockHeight = 0;
         public void CreateTextBox(string exampletext = "value")
         {
-            /*
-            TextBox editable = new TextBox();
-            editable.Text = exampletext;
-            editable.Height = (int)BlockHeight - 4;
-            editable.Width = 60;         
-            editable.Visible = true;
-            Form1.MainForm.Controls.Add(editable);
-            editable.Location = new Point((int)(Area.X + TextSize.Width + 10), (int)(Area.Y + 4));
-            EditableArea = editable;
-            */
             EditableArea ea = new EditableArea();
             ea.Text = "15";
             EditableArea = ea;
