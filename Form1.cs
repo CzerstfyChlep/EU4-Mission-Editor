@@ -46,6 +46,8 @@ namespace Mission_Mkaer
         public OpenBlock Main = new OpenBlock();
         public Point MainPosition = new Point(30, 30);
 
+        public EditableArea FocusedOn = null;
+
         public Block CurrentlyHeld = null;
 
         public bool FormClosed = false;
@@ -56,11 +58,17 @@ namespace Mission_Mkaer
             {
                 if (block.Area.Contains(e.Location))
                 {
+                    if(block.EditableArea != null)
+                    {
+                        if (block.EditableArea.Container.Contains(e.Location)){
+
+
+                            break;
+                        }
+                    }
                     CurrentlyHeld = block;
                     block.Parent.Contents.Remove(block);
                     block.Parent = null;
-                    if(block.EditableArea != null)
-                        Controls.Remove(block.EditableArea);
                     break;
                 }
             }
@@ -107,8 +115,8 @@ namespace Mission_Mkaer
                     if (found)
                         break;
                 }
-                if (CurrentlyHeld.EditableArea != null)
-                    Controls.Add(CurrentlyHeld.EditableArea);
+                //if (CurrentlyHeld.EditableArea != null)
+                //    Controls.Add(CurrentlyHeld.EditableArea);
                 CurrentlyHeld = null;
             }
         }
@@ -142,6 +150,8 @@ namespace Mission_Mkaer
                 do
                 {
                     SizeF size;
+                    SizeF editablesize = new SizeF(0, 0);
+
                     if (ParentList.Last().Contents.Count >= currentID + 1)
                     {
                         for(int a = 1; a < ParentList.Count(); a++)
@@ -154,17 +164,29 @@ namespace Mission_Mkaer
                             OpenBlock ob = (OpenBlock)ParentList.Last().Contents[currentID];
                             size = e.Graphics.MeasureString(ob.Variable, defaultfont);
                             RectangleF BoxRectangle = new RectangleF(MainPosition.X + 6 * (ParentList.Count() - 1), MainPosition.Y + Block.BlockHeight * currentLine, size.Width, Block.BlockHeight);
-                            if (ob.EditableArea != null)
-                                BoxRectangle.Width += 74;
+                            if (ob.EditableArea != null) {
+                                editablesize = e.Graphics.MeasureString(ob.EditableArea.Text, defaultfont);
+                                if (editablesize.Width < ob.EditableArea.MinWidth)
+                                    editablesize.Width = ob.EditableArea.MinWidth;
+                                BoxRectangle.Width += editablesize.Width + 10;
+                            }
+                            //if (ob.EditableArea != null)
+                            //    BoxRectangle.Width += 74;
                             ob.Area = BoxRectangle;
                             ob.TextSize = size;
                             e.Graphics.FillRectangle(new SolidBrush(ob.Color), BoxRectangle);
                             e.Graphics.DrawString(ob.Variable, defaultfont, Brushes.Black, BoxRectangle);
-                            //go into another one
                             if (ob.EditableArea != null)
                             {
-                                ob.EditableArea.Location = new Point((int)(BoxRectangle.X + size.Width + 10), (int)(BoxRectangle.Y + 4));
+                                ob.EditableArea.Container = new RectangleF(ob.Area.X + size.Width + 5, ob.Area.Y + 2, editablesize.Width, Block.BlockHeight - 4);
+                                e.Graphics.FillRectangle(new SolidBrush(GetLighterColor(ob.Color)), ob.EditableArea.Container);
+                                e.Graphics.DrawString(ob.EditableArea.Text, defaultfont, Brushes.Black, ob.Area.X + size.Width + 5, ob.Area.Y);
                             }
+                            //go into another one
+                            //if (ob.EditableArea != null)
+                            //{
+                            //    ob.EditableArea.Location = new Point((int)(BoxRectangle.X + size.Width + 10), (int)(BoxRectangle.Y + 4));
+                            //}
                             currentID = -1;
                             ParentList.Add(ob);
                         }
@@ -173,16 +195,32 @@ namespace Mission_Mkaer
                             ClosedBlock cb = (ClosedBlock)ParentList.Last().Contents[currentID];
                             size = e.Graphics.MeasureString(cb.Variable + " = ", defaultfont);
                             cb.TextSize = size;
+
+
+
                             RectangleF BoxRectangle = new RectangleF(MainPosition.X + 6 * (ParentList.Count() - 1), MainPosition.Y + Block.BlockHeight * currentLine, size.Width, Block.BlockHeight);
-                            if (cb.EditableArea != null)
-                                BoxRectangle.Width += 74;
-                            cb.Area = BoxRectangle;
+                            //if (cb.EditableArea != null)
+                            //    BoxRectangle.Width += 74;
                             if (cb.EditableArea != null)
                             {
-                                cb.EditableArea.Location = new Point((int)(BoxRectangle.X + size.Width + 10), (int)(BoxRectangle.Y + 4));
+                                editablesize = e.Graphics.MeasureString(cb.EditableArea.Text, defaultfont);
+                                if (editablesize.Width < cb.EditableArea.MinWidth)
+                                    editablesize.Width = cb.EditableArea.MinWidth;
+                                BoxRectangle.Width += editablesize.Width + 10;
                             }
+                            cb.Area = BoxRectangle;
+                            //if (cb.EditableArea != null)
+                            //{
+                            //    cb.EditableArea.Location = new Point((int)(BoxRectangle.X + size.Width + 10), (int)(BoxRectangle.Y + 4));
+                            //}
                             e.Graphics.FillRectangle(new SolidBrush(cb.Color), BoxRectangle);
-                            e.Graphics.DrawString(cb.Variable + " = 1", defaultfont, Brushes.Black, BoxRectangle);
+                            e.Graphics.DrawString(cb.Variable + " = ", defaultfont, Brushes.Black, BoxRectangle);
+                            if (cb.EditableArea != null)
+                            {
+                                cb.EditableArea.Container = new RectangleF(cb.Area.X + size.Width + 5, cb.Area.Y + 2, editablesize.Width, Block.BlockHeight - 4);
+                                e.Graphics.FillRectangle(new SolidBrush(GetLighterColor(cb.Color)), cb.EditableArea.Container);
+                                e.Graphics.DrawString(cb.EditableArea.Text, defaultfont, Brushes.Black, cb.Area.X + size.Width + 5, cb.Area.Y + 3);
+                            }
                         }
                     }
                     else
@@ -198,6 +236,9 @@ namespace Mission_Mkaer
                             OpenBlock ob = ParentList.Last();
                             size = e.Graphics.MeasureString("/" + ob.Variable, defaultfont);
                             RectangleF BoxRectangle = new RectangleF(MainPosition.X + 6 * (ParentList.Count() - 2), MainPosition.Y + Block.BlockHeight * currentLine, size.Width, Block.BlockHeight);
+
+
+
                             e.Graphics.FillRectangle(new SolidBrush(ob.Color), BoxRectangle);
                             e.Graphics.DrawString("/" + ob.Variable, defaultfont, Brushes.Black, BoxRectangle);
                             ob.ClosingArea = BoxRectangle;
@@ -223,7 +264,13 @@ namespace Mission_Mkaer
             }
             
         }
-        
+        public Color GetLighterColor(Color original)
+        {
+            int R = original.R + 25;
+            int G = original.G + 25;
+            int B = original.G + 25;
+            return Color.FromArgb(R > 255 ? 255 : R, G > 255 ? 255 : G, B > 255 ? 255 : B);
+        }
     }
 
 
@@ -257,11 +304,12 @@ namespace Mission_Mkaer
             Parent.Contents.Add(this);
         }
         public static Random BlockRandom = new Random();
-        public TextBox EditableArea = null;
-        public EditableArea UserInput = null;
+        // public TextBox EditableArea = null;
+        public EditableArea EditableArea = null;
         public static float BlockHeight = 0;
         public void CreateTextBox(string exampletext = "value")
         {
+            /*
             TextBox editable = new TextBox();
             editable.Text = exampletext;
             editable.Height = (int)BlockHeight - 4;
@@ -270,9 +318,10 @@ namespace Mission_Mkaer
             Form1.MainForm.Controls.Add(editable);
             editable.Location = new Point((int)(Area.X + TextSize.Width + 10), (int)(Area.Y + 4));
             EditableArea = editable;
-            
+            */
             EditableArea ea = new EditableArea();
             ea.Text = "15";
+            EditableArea = ea;
         }
     }
     public class ClosedBlock : Block
@@ -332,6 +381,7 @@ namespace Mission_Mkaer
         public int MinWidth = 30;
         public Position Alignment = EditableArea.Position.Right;
         public enum Position { Left, Right };
+        public RectangleF Container = new RectangleF();
     }
 
 
