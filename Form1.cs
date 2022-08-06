@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
+using System.IO;
 
 namespace Mission_Mkaer
 {
@@ -22,21 +23,52 @@ namespace Mission_Mkaer
             Thread DrawingThread = new Thread(Drawing);
             this.DoubleBuffered = true;
             Main.Area.Y = 0;
-            Main.AddBlock(new OpenBlock("ok"));
-            OpenBlock MissionBlock = new OpenBlock();
-            MissionBlock.Type = BlockType.MissionMainBlock;
-            MissionBlock.Variable = "mission";
-            MissionBlock.AddBlock(new ClosedBlock("slot") { Color = Color.Brown });
-            MissionBlock.AddBlock(new OpenBlock("something"));
-            (MissionBlock.Contents[1] as OpenBlock).AddBlock(new ClosedBlock("idk") { Color = Color.Pink });
-            Main.AddBlock(MissionBlock);
-            
+
             DrawingThread.Start();
             FormClosing += ClosingHandler;
             MouseDown += UserMouseInput;
             MouseUp += UserRelease;
             KeyDown += UserKeyboardInput;
-            
+
+            NodeFile nf = new NodeFile("file.txt");
+            bool done = false;
+            List<Node> ParentList = new List<Node>() { nf.MainNode };
+            OpenBlock BlockParent = Main;
+            int currentID = 0;
+            do
+            {
+                if (ParentList.Last().ItemOrder.Count >= currentID + 1)
+                {
+                    NodeItem ni = ParentList.Last().ItemOrder[currentID];
+                    if (ni is Node)
+                    {
+                        OpenBlock ob = new OpenBlock((ni as Node).Name);
+                        BlockParent.AddBlock(ob);
+                        BlockParent = ob;
+                        currentID = -1;
+                        ParentList.Add((Node)ni);
+                    }
+                    else if(ni is Variable)
+                    {
+                        BlockParent.AddBlock(new ClosedBlock((ni as Variable).Name, (ni as Variable).Value));
+                    }
+                }
+                else
+                {
+                    if (ParentList.Last() == nf.MainNode)
+                        done = true;
+                    else
+                    {
+                        currentID = ParentList.Last().Parent.ItemOrder.IndexOf(ParentList.Last());
+                        BlockParent = BlockParent.Parent;
+                        ParentList.Remove(ParentList.Last());
+                        
+                    }
+                }
+                currentID++;
+            } while (!done);
+
+
         }
         public static Form MainForm;
         public void ClosingHandler(object sender, EventArgs e)
@@ -61,13 +93,14 @@ namespace Mission_Mkaer
                     FocusedOn.Text = FocusedOn.Text.Substring(0, FocusedOn.Text.Length - 1);
                 else if(char.IsLetterOrDigit((char)e.KeyCode))
                 {
-                    FocusedOn.Text += (char)e.KeyCode;
+                    FocusedOn.Text += ((char)e.KeyCode).ToString();
                 }
             }
         }
 
         public void UserMouseInput(object sender, MouseEventArgs e)
         {
+            FocusedOn = null;
             foreach(Block block in Block.AllBlocks)
             {
                 if (block.Area.Contains(e.Location))
@@ -290,10 +323,10 @@ namespace Mission_Mkaer
         // public TextBox EditableArea = null;
         public EditableArea EditableArea = null;
         public static float BlockHeight = 0;
-        public void CreateTextBox(string exampletext = "value")
+        public void CreateTextBox(string value = "")
         {
             EditableArea ea = new EditableArea();
-            ea.Text = "15";
+            ea.Text = value;
             EditableArea = ea;
         }
     }
@@ -307,6 +340,11 @@ namespace Mission_Mkaer
         {
             CreateTextBox();
             Variable = var;           
+        }
+        public ClosedBlock(string var, string val)
+        {
+            CreateTextBox(val);
+            Variable = var;
         }
     }
     public class OpenBlock : Block
@@ -391,5 +429,292 @@ namespace Mission_Mkaer
     public class Mission
     {
 
+    }
+
+    public class NodeItem
+    {
+
+    }
+
+    public class NodeFile
+    {
+        public Node MainNode;
+        public List<Node> AllNodes = new List<Node>();
+        public List<Variable> Allvariables = new List<Variable>();
+        public bool ReadOnly = false;
+        public string FileName = "";
+        string Path = "";
+        public NodeFile()
+        {
+            MainNode = new Node("__MainNode");
+        }
+        public NodeFile(string file, bool readonl = false)
+        {
+            ReadFile(file);
+            ReadOnly = readonl;
+            Path = file;
+        }
+        public void ReadFile(string path)
+        {
+            if (!File.Exists(path))
+                return;
+            Path = path;
+            FileName = path.Split('\\').Last().Replace(".txt", "");
+            Node CurrentNode = new Node("__MainNode");
+            MainNode = CurrentNode;
+            StreamReader Reader = new StreamReader(path);
+            string read = "";
+            string name = "";
+            string value = "";
+            bool comment = false;
+            bool commentLine = false;
+            object lastObj = null;
+            string commentText = "";
+            while (!Reader.EndOfStream)
+            {
+                char character = (char)Reader.Read();
+
+                if (character == '=' && !comment)
+                {
+                    name = read.Trim();
+                    read = "";
+                }
+                else if (character == '{' && !comment)
+                {
+                    Node newNode = new Node(name, CurrentNode);
+                    CurrentNode.Nodes.Add(newNode);
+                    CurrentNode = newNode;
+                    lastObj = null;
+                    name = "";
+                    value = "";
+                    read = "";
+
+                }
+                else if (character == '}' && !comment)
+                {
+                    if (!read.Contains('=') && name == "" && value == "")
+                    {
+                        foreach (string v in read.Replace("\t", " ").Split(' '))
+                        {
+                            if (v != "" && v != " " && !string.IsNullOrWhiteSpace(v))
+                            {
+                                CurrentNode.PureValues.Add(v.Trim());
+                            }
+                        }
+                    }
+                    lastObj = CurrentNode;
+                    CurrentNode.Parent.ItemOrder.Add(CurrentNode);
+                    CurrentNode = CurrentNode.Parent;
+                    name = "";
+                    value = "";
+                    read = "";
+                }
+                else if (character == '\n')
+                {
+                    if (commentLine)
+                    {
+                        CurrentNode.Comments.Add(new CommentLine(commentText, lastObj));
+                    }
+                    else
+                    {
+                        if (name != "")
+                        {
+                            Variable v = new Variable(name, read.Trim());
+                            v.Comment = commentText;
+                            CurrentNode.Variables.Add(v);
+                            CurrentNode.ItemOrder.Add(v);
+                            lastObj = v;
+                        }
+                        else
+                        {
+                            foreach (string v in read.Replace("\t", " ").Split(' '))
+                            {
+                                if (v != "" && v != " " && !string.IsNullOrWhiteSpace(v))
+                                {
+                                    CurrentNode.PureValues.Add(v.Trim());
+                                }
+                            }
+                        }
+                    }
+                    name = "";
+                    value = "";
+                    read = "";
+
+                    comment = false;
+                    commentLine = false;
+                    commentText = "";
+                }
+                else if (character == '#')
+                {
+                    comment = true;
+                    if (read.Trim() == "" || name.Trim() == "")
+                    {
+                        commentLine = true;
+                    }
+                }
+                else if (comment)
+                {
+                    commentText += character;
+                }
+                else
+                {
+                    read += character;
+                }
+            }
+            if (name != "")
+            {
+                if (name.Contains(" "))
+                {
+                    foreach (string v in name.Split(' '))
+                    {
+                        CurrentNode.Variables.Add(new Variable(v, ""));
+                    }
+                }
+                else
+                {
+                    CurrentNode.Variables.Add(new Variable(name, read.Trim()));
+                }
+            }
+            Reader.Close();
+
+        }
+        public void SaveFile(string path)
+        {
+            File.WriteAllText(path, Node.NodeToText(MainNode));
+        }
+    }
+    public class CommentLine
+    {
+        public string Text = "";
+        public object Below = null;
+        public CommentLine(string text, object below)
+        {
+            Text = text;
+            Below = below;
+        }
+    }
+    public class Node : NodeItem
+    {
+        public string Name = "";
+        public string PureInnerText = "";
+        public bool UseInnerText = false;
+        public Node Parent = null;
+        public List<Node> Nodes = new List<Node>();
+        public List<Variable> Variables = new List<Variable>();
+        public List<string> PureValues = new List<string>();
+        public List<CommentLine> Comments = new List<CommentLine>();
+        public List<NodeItem> ItemOrder = new List<NodeItem>();
+        public Node(string name)
+        {
+            Name = name;
+        }
+        public Node(string name, Node parent)
+        {
+            Name = name;
+            Parent = parent;
+        }
+        public static string NodeToText(Node n)
+        {
+            string text = "";
+            foreach (CommentLine cl in n.Comments)
+            {
+                if (cl.Below == null)
+                    text += "#" + cl.Text + "\n";
+            }
+
+            if (n.PureValues.Any())
+            {
+                int count = 0;
+                foreach (string s in n.PureValues)
+                {
+                    count++;
+                    if (count == 10)
+                    {
+                        count = 0;
+                        text += s + "\n";
+                    }
+                    else
+                    {
+                        text += s + " ";
+                    }
+                }
+            }
+            else
+            {
+                foreach (Variable v in n.Variables)
+                {
+                    text += v.Name + " = " + v.Value;
+                    if (v.Comment != "")
+                        text += "#" + v.Comment;
+                    text += "\n";
+                    foreach (CommentLine cl in n.Comments)
+                    {
+                        if (cl.Below == v)
+                            text += "#" + cl.Text + "\n";
+                    }
+                }
+                foreach (Node inner in n.Nodes)
+                {
+                    text += inner.Name + " = {";
+                    if (inner.UseInnerText && false)
+                    {
+                        text += " " + inner.PureInnerText + " ";
+                    }
+                    else
+                    {
+                        text += "\n";
+                        string innertext = NodeToText(inner);
+                        string tabbedtext = "";
+                        foreach (string line in innertext.Split('\n'))
+                        {
+                            if (line != "")
+                            {
+                                tabbedtext += "\t" + line + "\n";
+                            }
+                        }
+                        text += tabbedtext;
+                    }
+                    text += "}\n";
+                    foreach (CommentLine cl in n.Comments)
+                    {
+                        if (cl.Below == inner)
+                            text += "#" + cl.Text + "\n";
+                    }
+                }
+            }
+            return text;
+        }
+        public bool ChangeVariable(string name, string value, bool forceadd = false)
+        {
+            Variable v = Variables.Find(x => x.Name == name);
+            if (v != null)
+            {
+                v.Value = value;
+                return true;
+            }
+            else
+            {
+                if (forceadd)
+                {
+                    Variables.Add(new Variable(name, value));
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+    } 
+    public class Variable : NodeItem
+    {
+        public string Name = "";
+        public string Value = "";
+        public string Comment = "";
+        public Variable(string name, string value)
+        {
+            Name = name;
+            Value = value;
+        }
     }
 }
