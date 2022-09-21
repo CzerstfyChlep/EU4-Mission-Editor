@@ -1,6 +1,6 @@
 ﻿namespace Mission_Mkaer
 {
-    partial class Form1
+    partial class MissionVisualizer
     {
         /// <summary>
         /// Required designer variable.
@@ -30,16 +30,16 @@
         {
             this.SuspendLayout();
             // 
-            // Form1
+            // MissionVisualizer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(384, 318);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.ClientSize = new System.Drawing.Size(524, 661);
+            this.ControlBox = false;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.Name = "Form1";
-            this.Text = "Mission Maker";
+            this.Name = "MissionVisualizer";
+            this.Text = "MissionVisualizer";
             this.ResumeLayout(false);
 
         }
@@ -47,4 +47,3 @@
         #endregion
     }
 }
-
